@@ -8,15 +8,10 @@ M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証�
 
 設定は [platformio.ini](platformio.ini) にあります。
 
-| 環境名 | example | 演算方式・動作 |
+| 環境名 | 演算方式 | 用途 |
 | --- | --- | --- |
-| `cores3-inference` | [01_inference](examples/01_inference/main.cpp) | W8A32の推論のみ。音声は出ない |
-| `cores3-pie` | [02_pie_inference](examples/02_pie_inference/main.cpp) | W8A8＋PIEの推論のみ。音声は出ない |
-| `cores3-buffered`（既定） | [03_buffered_playback](examples/03_buffered_playback/main.cpp) | W8A8＋PIEで全PCMを蓄積後に再生 |
-| `m5stack-cores3`（互換用） | 03_buffered_playback | 従来どおりW8A32で蓄積再生 |
-| `m5stack-cores3-pie`（互換用） | 03_buffered_playback | 従来どおりW8A8＋PIEで蓄積再生 |
-
-Hello Worldはexamplesに含めません。ストリーミング版は既存exampleの実機確認後に実装する予定で、現在はソースもビルド環境も追加していません。
+| `m5stack-cores3-pie`（既定） | W8A8、PIE有効 | ESP32-S3の整数SIMDを使う高速版 |
+| `m5stack-cores3` | W8A32、PIE無効 | 比較用の構成 |
 
 W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小数点です。W8A8は活性化も8bit整数へ量子化して計算します。PIEはESP32-S3で複数の整数の積和をまとめて実行する命令です。演算方式が変わるため、両構成の波形やチェックサムが同一になるとは限りません。
 
@@ -24,23 +19,22 @@ W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小
 
 ```sh
 # ビルド
-pio run -e cores3-buffered
+pio run -e m5stack-cores3-pie
 
 # 接続したCoreS3へ書き込み（起動後に音が出ます）
-pio run -e cores3-buffered -t upload
+pio run -e m5stack-cores3-pie -t upload
 
 # シリアルモニター
 pio device monitor -b 115200
 ```
 
-モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。推論のみなら環境名を `cores3-inference` または `cores3-pie` に変更します。W8A32の蓄積再生は互換環境 `m5stack-cores3` で確認できます。
+モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。W8A32版を使う場合は環境名を `m5stack-cores3` に変更してください。
 
 ## ファイルの役割
 
 | ファイル・フォルダ | 役割 |
 | --- | --- |
-| [examples](examples) | 各段階のmain.cpp。環境名で1つを選択してビルド |
-| [src/main.cpp](src/main.cpp) | 構成整理前の蓄積再生コードをそのまま保持。現在はビルド対象外 |
+| [src/main.cpp](src/main.cpp) | Arduinoの起動、推論タスク、PCM蓄積、計測、再生、再実行の制御 |
 | [src/demo_ids.h](src/demo_ids.h) | 固定入力 `kSaanDemoIds` と元の文章の情報 |
 | [src/saan_model.c](src/saan_model.c) | 埋め込まれたモデルを開き、整列とモデル形式を確認 |
 | [lib/saanotts_core](lib/saanotts_core) | C言語の推論コア。ニューラルネットワークの計算本体 |
@@ -49,23 +43,7 @@ pio device monitor -b 115200
 | [scripts/blob_to_header.py](scripts/blob_to_header.py) | バイナリモデルをCの配列へ変換 |
 | [doc/codex/steering](doc/codex/steering) | 各段階の作業方針と検証結果 |
 
-`src`には移植元のESP-IDFサンプルも残っていますが、現在のアプリ側のビルド対象は選択した `examples/.../main.cpp` と共通の `src/saan_model.c` だけです。`src_dir = .` と各環境の `build_src_filter` で明示的に選択し、元の `src/main.cpp` や他のexampleはコンパイルしません。`main.c`、辞書、コンソール、顔表示、元サンプルのスピーカー処理はビルド対象外です。Arduino構成ではコピー済みの `CMakeLists.txt` をそのまま使わず、PlatformIOのソース選択と [library.json](lib/saanotts_core/library.json) で構成します。
-
-## 各exampleの確認方法
-
-1. PlatformIOで対象の環境を選び、BuildとUploadを行います。同じCoreS3上のファームウェアは選択したexampleに置き換わります。
-2. 115200bpsのモニターを開いてリセットし、起動からのログを確認します。
-3. `r` を送信して再実行します。推論のみのexampleも入力待ちでは同じ操作です。
-
-| example | 起動ログと実機での確認ポイント | 同一構成での参考チェックサム |
-| --- | --- | --- |
-| 01_inference | `W8A32 / PIE=0`、推論PASS、再実行でも一致。音は出ない | `3c5d15d4056974af` |
-| 02_pie_inference | `W8A8 / PIE=1`、PIEセルフテストPASS、推論PASS。音は出ない | `7f28bdb2c151b52c` |
-| 03_buffered_playback | PIEセルフテストと推論PASS、発声、Playback complete。rで再び発声 | `7f28bdb2c151b52c`（PIE版） |
-
-各main.cppは当時のコードを変更せずコピーしています。01は `doc/codex/backups/20260912-w8a8-pie/src/main.cpp`、02は `doc/codex/backups/20260912-buffered-playback/src/main.cpp`、03は構成整理前の `src/main.cpp` が保存元です。蓄積再生版の既知のI2S終了ログも、参考コードをそのまま残すため変更していません。
-
-以下の詳しい処理解説は [03_buffered_playback/main.cpp](examples/03_buffered_playback/main.cpp) を対象とします。保持しているsrc/main.cppと内容は同一です。01・02には全音声用バッファと再生処理がなく、01にはPIEセルフテストもありません。
+`src`には移植元のESP-IDFサンプルも残っていますが、現在のアプリ側のビルド対象は `main.cpp` と `saan_model.c` だけです。`main.c`、辞書、コンソール、顔表示、元サンプルのスピーカー処理はビルド対象外です。Arduino構成ではコピー済みの `CMakeLists.txt` をそのまま使わず、PlatformIOのソース選択と [library.json](lib/saanotts_core/library.json) で構成します。
 
 ## main.cppの全体の流れ
 
