@@ -2,7 +2,7 @@
 
 M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証用プロジェクトです。AI_StackChan_Exへ移植する前に、モデルの読み込み、推論速度、メモリ使用量、内蔵スピーカーでの再生を確認します。
 
-現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力します。既定のストリーミング版は先読み後に再生を開始し、残りを計算しながら順次再生します。全音声を貯めてから再生する蓄積版も環境名で選択できます。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章の解析はまだ行いません。
+現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力し、全音声をPSRAMに貯めてから再生します。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章の解析や、計算と並行したストリーミング再生はまだ行いません。
 
 ## ビルドと実機での確認
 
@@ -12,12 +12,11 @@ M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証�
 | --- | --- | --- |
 | `cores3-inference` | [01_inference](examples/01_inference/main.cpp) | W8A32の推論のみ。音声は出ない |
 | `cores3-pie` | [02_pie_inference](examples/02_pie_inference/main.cpp) | W8A8＋PIEの推論のみ。音声は出ない |
-| `cores3-buffered` | [03_buffered_playback](examples/03_buffered_playback/main.cpp) | W8A8＋PIEで全PCMを蓄積後に再生 |
-| `cores3-streaming`（既定） | [04_streaming_playback](examples/04_streaming_playback/main.cpp) | W8A8＋PIEで先読み後、計算と並行して再生 |
+| `cores3-buffered`（既定） | [03_buffered_playback](examples/03_buffered_playback/main.cpp) | W8A8＋PIEで全PCMを蓄積後に再生 |
 | `m5stack-cores3`（互換用） | 03_buffered_playback | 従来どおりW8A32で蓄積再生 |
 | `m5stack-cores3-pie`（互換用） | 03_buffered_playback | 従来どおりW8A8＋PIEで蓄積再生 |
 
-Hello Worldはexamplesに含めません。01〜03は動作確認時のコードを保持し、04にストリーミング再生を実装しています。
+Hello Worldはexamplesに含めません。ストリーミング版は既存exampleの実機確認後に実装する予定で、現在はソースもビルド環境も追加していません。
 
 W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小数点です。W8A8は活性化も8bit整数へ量子化して計算します。PIEはESP32-S3で複数の整数の積和をまとめて実行する命令です。演算方式が変わるため、両構成の波形やチェックサムが同一になるとは限りません。
 
@@ -25,16 +24,16 @@ W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小
 
 ```sh
 # ビルド
-pio run -e cores3-streaming
+pio run -e cores3-buffered
 
 # 接続したCoreS3へ書き込み（起動後に音が出ます）
-pio run -e cores3-streaming -t upload
+pio run -e cores3-buffered -t upload
 
 # シリアルモニター
 pio device monitor -b 115200
 ```
 
-モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。蓄積再生との比較は `cores3-buffered` を指定します。推論のみなら環境名を `cores3-inference` または `cores3-pie` に変更します。W8A32の蓄積再生は互換環境 `m5stack-cores3` で確認できます。
+モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。推論のみなら環境名を `cores3-inference` または `cores3-pie` に変更します。W8A32の蓄積再生は互換環境 `m5stack-cores3` で確認できます。
 
 ## ファイルの役割
 
@@ -63,67 +62,12 @@ pio device monitor -b 115200
 | 01_inference | `W8A32 / PIE=0`、推論PASS、再実行でも一致。音は出ない | `3c5d15d4056974af` |
 | 02_pie_inference | `W8A8 / PIE=1`、PIEセルフテストPASS、推論PASS。音は出ない | `7f28bdb2c151b52c` |
 | 03_buffered_playback | PIEセルフテストと推論PASS、発声、Playback complete。rで再び発声 | `7f28bdb2c151b52c`（PIE版） |
-| 04_streaming_playback | 先読み後の発声、推論PASS、Playback complete、発話開始要求時間とキュー枯渇回数 | `7f28bdb2c151b52c`（同じモデル・入力・PIE構成） |
 
-01〜03の各main.cppは当時のコードを変更せずコピーしています。01は `doc/codex/backups/20260912-w8a8-pie/src/main.cpp`、02は `doc/codex/backups/20260912-buffered-playback/src/main.cpp`、03は構成整理前の `src/main.cpp` が保存元です。蓄積再生版の既知のI2S終了ログも、参考コードをそのまま残すため変更していません。
+各main.cppは当時のコードを変更せずコピーしています。01は `doc/codex/backups/20260912-w8a8-pie/src/main.cpp`、02は `doc/codex/backups/20260912-buffered-playback/src/main.cpp`、03は構成整理前の `src/main.cpp` が保存元です。蓄積再生版の既知のI2S終了ログも、参考コードをそのまま残すため変更していません。
 
-後半の蓄積再生の詳しい処理解説は [03_buffered_playback/main.cpp](examples/03_buffered_playback/main.cpp) を対象とします。保持しているsrc/main.cppと内容は同一です。01・02には全音声用バッファと再生処理がなく、01にはPIEセルフテストもありません。
+以下の詳しい処理解説は [03_buffered_playback/main.cpp](examples/03_buffered_playback/main.cpp) を対象とします。保持しているsrc/main.cppと内容は同一です。01・02には全音声用バッファと再生処理がなく、01にはPIEセルフテストもありません。
 
-## 04_streaming_playback：先読み付き再生
-
-[04のmain.cpp](examples/04_streaming_playback/main.cpp)は03を基にしています。モデルと推論処理、PIEの設定、float32の統計・チェックサム、int16変換、22,050Hzモノラル・音量128を維持し、音声の貯め方と再生タイミングを変えています。
-
-```mermaid
-flowchart TD
-    A[推論初期化・音声長の予測] --> B[先読み用と循環バッファをPSRAMに確保]
-    B --> C[最初の4チャンクを合成・変換]
-    C --> D[先読み分を再生キューに渡す]
-    D --> E[次のチャンクを合成・変換]
-    E --> F[空きキューを待ちplayRawへ渡す]
-    F --> G{全PCMを生成したか}
-    G -->|まだ| E
-    G -->|完了| H[統計・チェックサムを出力]
-    H --> I[残りの再生とDMAの待機]
-    I --> J[バッファ解放・r待機]
-```
-
-### バッファと所有期間
-
-最初に最大4チャンク（8,192サンプル、約371ms分）を貯めて再生します。音声全体が短ければ、その全量を先読みとして使います。残りは2,048サンプルのint16バッファ3枚を循環させます。通常の確保量は `(8192 + 2048 × 3) × 2 = 28,672` バイトで、音声が長くなっても増えません。推論用arenaやモデルの置き方は03と同じです。
-
-`StreamingOutput` が再生用メモリとキューへの送出を管理します。M5Unifiedが保持する音声ポインタはcurrentとnextの最大2本です。成功した送出ごとに3枚を順番に使えば、次に書く領域はその2本に含まれません。先読み用の配列は循環バッファとは別に確保し、発話が終わるまで保持します。
-
-キューが2本とも埋まっている場合はタスクを待機させます。空きができたら次を渡します。チャンネル0へ書く処理はこのタスク1つに限定しています。
-
-### 終了・エラー処理
-
-最後まで送出した後、再生終了とDMA用の余裕時間を待ってからメモリを解放します。キュー待機・末尾再生待機には5秒の上限を設けています。途中で推論・変換・キュー送出に失敗した場合は、`StreamingOutput`のデストラクターでスピーカータスクを終了させてからメモリを解放します。
-
-03と違い、途中で異常が分かる時点ですでに音が出ている可能性があります。その場合は残りの再生を止めます。非有限値を含む新しいチャンクは送出しません。
-
-04ではスピーカーの初期再設定時に `isRunning()` を確認してから `end()` を呼ぶようにしました。03で見られた未初期化I2Sの終了ログへの対処ですが、実機での確認はこれからです。
-
-### ストリーミング版のログ
-
-| 項目 | 意味 |
-| --- | --- |
-| `Streaming buffers` | PSRAM確保量、先読みサンプル数、循環バッファの枚数とサイズ |
-| `first_request` | 推論初期化開始から最初のplayRaw要求直前まで。実際に音が出始める時刻ではない |
-| `queue_wait` | 再生キューの空きを待つ処理に費やした合計時間 |
-| `end_to_end` | 推論初期化開始から最後の再生とDMA余裕待機までの経過時間 |
-| `queue_empty_events` | 初回送出を除き、次の送出直前にチャンネルのキューが空だった検出回数 |
-| `compute` / `compute_xRT` | 03と同じく推論初期化とpullの計算時間／音声時間との比 |
-| `wall` / `wall_xRT` | 全PCM生成・送出までの時間／音声時間との比。変換・キュー待機を含み、再生と重なる。末尾の再生待機は含まない |
-
-`queue_empty_events`はソースキューの状態から検出する値で、DMAの実際のアンダーラン数ではありません。DMAに音声が残っていれば無音にならない場合があります。逆に、この値が0でもノイズや音切れの不存在を保証しません。実際に聞こえる音声と合わせて判断します。
-
-`wall_xRT`は再生待ちの影響を受けるため、03との計算速度比較には `compute_xRT` を使います。発話開始の改善は `first_request` と聴取で確認します。従来の蓄積版では発声前に約1.11秒の合成が必要でしたが、04での実測値はまだありません。
-
-### 実機での確認
-
-`cores3-streaming`をUploadし、モニターを開いたままリセットしてください。起動時と `r` による再実行で、PIEセルフテスト・推論のPASS、チェックサム `7f28bdb2c151b52c`、Playback completeを確認します。音切れ・ノイズ・末尾欠落、再生後のメモリの戻り、`first_request`と`queue_empty_events`も確認します。キュー枯渇や音切れがある場合は、ログと聴取結果に基づいて先読み量を調整します。
-
-## 03_buffered_playbackのmain.cppの全体の流れ
+## main.cppの全体の流れ
 
 ```mermaid
 flowchart TD
@@ -217,7 +161,7 @@ PIE版では `pieSelfTest()` が32要素の符号付き8bit整数配列を用意
 
 書き込み範囲と反復回数にも上限を設けています。チャンク処理の間の `vTaskDelay(1)` は1 RTOS tickだけ実行を譲る処理で、必ず1msという意味ではありません。
 
-推論API自体はチャンク単位のストリーミング方式ですが、03の再生方式は全量蓄積です。計算しながら音を出す処理は04に実装しています。
+推論API自体はチャンク単位のストリーミング方式ですが、このアプリの再生方式は全量蓄積です。計算しながら音を出す処理はまだありません。
 
 ### 推論の合否
 
@@ -291,7 +235,7 @@ PlatformIOのビルド結果のRAM使用量は主に静的領域の値です。a
 I2S port 1 has not installed
 ```
 
-03の `inferenceTask()` はスピーカー再設定の前に無条件で `M5.Speaker.end()` を呼びます。未インストールのI2Sを終了しようとすることが、このログの原因と考えられます。確認した実機ログではその後の初期化・再生は成功していますが、呼び出し条件の見直しは未実施です。
+現状の `inferenceTask()` はスピーカー再設定の前に無条件で `M5.Speaker.end()` を呼びます。未インストールのI2Sを終了しようとすることが、このログの原因と考えられます。確認した実機ログではその後の初期化・再生は成功していますが、呼び出し条件の見直しは未実施です。
 
 ## モデルの埋め込みと出所
 
