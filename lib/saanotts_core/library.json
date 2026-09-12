@@ -1,0 +1,19 @@
+{
+  "name": "saanotts_core",
+  "version": "0.0.0",
+  "build": {
+    "srcDir": ".",
+    "includeDir": ".",
+    "srcFilter": [
+      "-<*>",
+      "+<saanotts.c>",
+      "+<saanotts_stream.c>",
+      "+<saanotts_int8.c>",
+      "+<fft.c>"
+    ],
+    "flags": [
+      "-O2",
+      "-DSAAN_PORT_HEADER=\\\"saan_port_esp32.h\\\""
+    ]
+  }
+}
