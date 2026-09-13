@@ -1,41 +1,45 @@
-# model/
+# モデルと辞書
 
-| ファイル | 出所 | SHA-256 |
-|---|---|---|
-| `student_i8.bin` | **sanoTTS-jp** <https://github.com/ayutaz/sanoTTS-jp> — GitHub Release **v0.3.0** の `saanotts-jp-v3-int8.bin`（v3 / int8 / **SAAN v2 形式** / 654,032 B） | `2d2b8543c06b6a749f19c9918de68244409e2bb6ad1d921a90b5c358f96d4d79` |
+## 推論モデル（Gitに同梱）
 
-- モデル: 559,008 params の蒸留生徒（Duration 32 / Acoustic 48 / Decoder 76 幅、Stage 3 80k step）。
-  piper-plus（つくよみちゃん）教師からの蒸留。詳細は本家の `MODEL_CARD.md`。
-- **重みの値は v0.2.0 の `saanotts-jp-v3-int8.bin`（v1 形式、643,936 B、SHA-256 `c3b89216…`）と同じ**。
-  違うのは**配置**だけ: v2 は int8 conv 重みを `[cout][k][align16(cin)]` で 0 埋めして持ち
-  （+10,096 B）、PIE カーネルが実行時の転置コピー無しに直接読む（本家 S4 / D-046）。
-  2026-09-02 以降の推論コアは v1 を `SAAN_ERR_VERSION` で拒む。
-- **ライセンスは MIT ではない**: `LicenseRef-sanoTTS-jp-Model-1.0`
-  （[`../LICENSES/sanoTTS-jp.LICENSE-MODEL.md`](../LICENSES/sanoTTS-jp.LICENSE-MODEL.md)）。
-  帰属表示と生成音声の用途制限は [`../NOTICE.md`](../NOTICE.md)。
-- ビルド時に `scripts/blob_to_header.py` がこれを `build/esp-idf/main/saan_model_blob.h`
-  （`const uint8_t[]`、16 B 境界）へ変換し、app の `.rodata`（flash）に入る。
-  差し替えたら自動で作り直る。**fp32 blob は受け付けない**（スクリプトが dtype を見て拒否）。
+| 項目 | 内容 |
+|---|---|
+| ファイル | `student_i8.bin` |
+| 取得元 | [sanoTTS-jp Release v0.3.0](https://github.com/ayutaz/sanoTTS-jp/releases/tag/v0.3.0) の `saanotts-jp-v3-int8.bin` |
+| 形式・サイズ | v3モデル、SAAN blob v2形式、int8、654,032 B |
+| SHA-256 | `2d2b8543c06b6a749f19c9918de68244409e2bb6ad1d921a90b5c358f96d4d79` |
+| ライセンス | [sanoTTS-jp Model License 1.0](../LICENSES/sanoTTS-jp.LICENSE-MODEL.md)（MITではありません） |
 
-更新するとき:
+piper-plus（つくよみちゃん）教師から蒸留された559,008パラメータのモデルです。詳細は [取得版のMODEL_CARD](https://github.com/ayutaz/sanoTTS-jp/blob/v0.3.0/MODEL_CARD.md) を参照してください。必須帰属表示・生成音声の用途制限・再配布先への条件伝播は [NOTICE.md](../NOTICE.md) に記載しています。
+
+PlatformIOの [platformio_model.py](../scripts/platformio_model.py) が [blob_to_header.py](../scripts/blob_to_header.py) を呼び、`.pio/build/<環境>/generated/saan_model_blob.h` を生成します。モデルは16バイト整列したconst配列としてファームウェアのflashに含まれます。モデル専用パーティションへの書き込みは不要です。
+
+モデルを入手し直す場合（GitHub CLIを使う例）:
 
 ```sh
-gh release download v0.3.0 --repo ayutaz/sanoTTS-jp --pattern 'saanotts-jp-v3-int8.bin' -O model/student_i8.bin
-sha256sum model/student_i8.bin      # 上の値と突き合わせる
-xxd -l 8 model/student_i8.bin       # "SAAN" の次の 4 バイトが 02 00 00 00 なら v2
+gh release download v0.3.0 --repo ayutaz/sanoTTS-jp --pattern 'saanotts-jp-v3-int8.bin' --dir model/download
 ```
 
-## 辞書（端末内漢字 G2P 用、git には入れていない）
+ダウンロードしたファイルのSHA-256が上記と一致することを確認してから `student_i8.bin` として配置してください。`sanoTTS-jp-v0.3.0.SHA256SUMS.txt` は取得元Releaseの照合資料です。最新モデルへの自動追従はしません。
 
-| ファイル | 出所 | SHA-256 |
-|---|---|---|
-| `k1-dict-438750.bin` | sanoTTS-jp Release v0.3.0（13,702,320 B。v0.2.0 と同一のファイル。NAIST-jdic / UniDic を TTS 用に枝刈りした派生物、修正 BSD） | `f162c922074d76817298b34d8a8fd35f7d195f38540303485a76c956b5d84877` |
+## 2M辞書（Git管理外）
+
+| 項目 | 内容 |
+|---|---|
+| ファイル | `k1-dict-44000-2mb.bin` |
+| 取得元 | [sanoTTS-jp Release v0.3.1-rc1-smallflash](https://github.com/ayutaz/sanoTTS-jp/releases/tag/v0.3.1-rc1-smallflash) |
+| 形式・サイズ | K1D1 v2、44,000エントリ、977,456 B、matrixc/charr |
+| SHA-256 | `cd1ed65241600b29ced9fde627b1543d93f5f5c0cd5297a4dba42d3f01d8806a` |
+| 出所・条件 | NAIST-jdic / UniDic由来。[辞書NOTICE全文](../LICENSES/sanoTTS-jp.NOTICE-dictionary.txt) |
+
+次の例で取得するか、取得元Releaseからファイルをダウンロードしてmodel/へ置いてください。
 
 ```sh
-./scripts/get_dict.sh        # Release から取って SHA-256 を検証する
+gh release download v0.3.1-rc1-smallflash --repo ayutaz/sanoTTS-jp --pattern 'k1-dict-44000-2mb.bin' --dir model
 ```
 
-- ビルド時に `dict` パーティション（0x210000、14.6 MB）へ焼かれ、端末は `esp_mmu_map` で
-  そのまま読む（RAM にコピーしない。`saan_dict.c` が `CONFIG_SPI_FLASH_ROM_IMPL=y` を見て
-  `esp_partition_mmap` から自動で切り替える）。`-DSAAN_KANJI=0` なら不要
-- `sanoTTS-jp-v0.3.0.SHA256SUMS.txt` は Release v0.3.0 の全資産のハッシュ（照合用）
+移植元の `scripts/get_dict.sh 44000` を使って取得した同一ファイルも利用できます。このプロジェクトにget_dict.shは同梱していません。ビルドによる自動ダウンロードもありません。
+
+`cores3-text-input` だけが [dictionary_to_header.py](../scripts/dictionary_to_header.py) で形式・SHA-256を検査し、`.pio/build/cores3-text-input/generated/saan_dict_blob.h` を生成します。辞書はモデルと同様にflashへ埋め込み、RAMへの全体コピーや専用dictパーティションは使いません。他サイズの辞書は現在の環境では選択対象外です。
+
+辞書をGit管理外にしていても、05のファームウェアには辞書が含まれます。バイナリ配布には [NOTICE.md](../NOTICE.md) と辞書のライセンス表示を含めてください。

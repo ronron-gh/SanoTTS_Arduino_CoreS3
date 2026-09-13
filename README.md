@@ -1,6 +1,6 @@
 # SanoTTS Arduino CoreS3
 
-M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証用プロジェクトです。AI_StackChan_Exへ移植する前に、モデルの読み込み、推論速度、メモリ使用量、内蔵スピーカーでの再生を確認します。
+M5Stack CoreS3で日本語TTS [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp)の推論コアをPlatformIO/Arduino環境から動かす検証用プロジェクトです。sanoTTS-jpをESP-IDF環境でM5Stack各種で動かすプロジェクト[SanoTTS-jp-M5StackCoreS3](https://github.com/nnn112358/SanoTTS-jp-M5StackCoreS3)をベースとし、モデルの読み込み、推論速度、メモリ使用量、内蔵スピーカーでの再生を確認します。
 
 現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力します。既定のストリーミング版は先読み後に再生を開始し、残りを計算しながら順次再生します。全音声を貯めてから再生する蓄積版も環境名で選択できます。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章は、追加の `cores3-text-input` 環境で解析・再生できます（使い方は下記）。
 
@@ -300,7 +300,7 @@ I2S port 1 has not installed
 
 配列は `const` と16バイト整列を指定し、`saan_model.c`だけから取り込みます。モデル全体を内部RAMへ移さず、PIE等が必要とする整列も維持するためです。
 
-移植元は [SanoTTS-jp-M5StackCoreS3](https://github.com/nnn112358/SanoTTS-jp-M5StackCoreS3)、モデルと推論コアの出所は [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp) です。モデルの情報は [model/README.md](model/README.md)、Open JTalk関連の出所と条件は [PROVENANCE.md](lib/saanotts_core/openjtalk/PROVENANCE.md) と [COPYING](lib/saanotts_core/openjtalk/COPYING) を参照してください。コードとモデル重みのライセンスは別です。配布時には移植元のライセンス・NOTICEも確認してください。
+移植元は [SanoTTS-jp-M5StackCoreS3](https://github.com/nnn112358/SanoTTS-jp-M5StackCoreS3)、モデルと推論コアの出所は [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp) です。モデルの情報は [model/README.md](model/README.md)、Open JTalk関連の出所と条件は [PROVENANCE.md](lib/saanotts_core/openjtalk/PROVENANCE.md) と [COPYING](lib/saanotts_core/openjtalk/COPYING) を参照してください。独自のArduino移植・追加部分は [MIT](LICENSE)、上流由来のコードは各原ライセンスを保持しています。**同梱モデルと生成音声はMITではなく、sanoTTS-jp Model License 1.0の条件が適用されます。** 出所・変更範囲・必須クレジット・辞書や外部依存の条件は [NOTICE.md](NOTICE.md)、原文は [LICENSES](LICENSES/README.md) を参照してください。ファームウェアにもモデル（05は辞書も）が含まれるため、再配布時にはそれぞれの条件が適用されます。
 
 
 ## 日本語文章入力（05_text_input）
@@ -370,7 +370,7 @@ Open JTalkの一時確保だけに `oj_heap_psram.h` を適用し、PSRAMを優�
 - 辞書・モデルのflash配置と16バイト整列、Open JTalkからPSRAM用関数への参照をELF/オブジェクトで確認。04に日本語解析のシンボルが混入しないことも確認。
 - ホストで7文×3回の文章→ids変換、長さ制限後の再試行、UTF-8・改行・入力上限を検証。AddressSanitizer/UndefinedBehaviorSanitizerで異常なし。
 - 起動文の53 idsは保存済みの固定入力と全要素一致。辞書生成配列のバイト一致と欠落・破損辞書の拒否も確認。
-- 実機での発声とメモリ測定は未実施。
+- ユーザーにより日本語文章入力と英数字の正規化修正後の実機動作を確認済み。任意の文章すべての読みや、05の詳細なメモリ測定値を保証するものではありません。
 
 ホスト検証は、gcc/g++のあるLinuxまたはWSLで以下を実行できます。辞書を事前に配置してください。
 
@@ -389,4 +389,4 @@ python3 tests/host/run_tests.py
 - 正規化後も1,023バイトが上限です。英数字の全角化で長さが増えるため、送信時に上限内でも拒否されることがあります。切り詰めず `内部バッファを超えた` と表示し、次の文章を待ちます。
 - 正規化用にタスクスタックへ1,024バイトのバッファを2つ追加しています。実機のスタック残量も確認してください。
 
-修正後は `cores3-text-input` を再度書き込み、半角の上記2文を再確認してください。ビルド2環境とホストのASan/UBSan検証は成功していますが、修正後の実機音声は未確認です。起動文の固定53 idsとの一致も維持しています。
+修正後は `cores3-text-input` を再度書き込み、半角の上記2文を再確認してください。ビルド2環境とホストのASan/UBSan検証に加え、ユーザーにより修正後の実機動作を確認済みです。起動文の固定53 idsとの一致も維持しています。
