@@ -2,7 +2,7 @@
 
 M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証用プロジェクトです。AI_StackChan_Exへ移植する前に、モデルの読み込み、推論速度、メモリ使用量、内蔵スピーカーでの再生を確認します。
 
-現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力します。既定のストリーミング版は先読み後に再生を開始し、残りを計算しながら順次再生します。全音声を貯めてから再生する蓄積版も環境名で選択できます。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章の解析はまだ行いません。
+現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力します。既定のストリーミング版は先読み後に再生を開始し、残りを計算しながら順次再生します。全音声を貯めてから再生する蓄積版も環境名で選択できます。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章は、追加の `cores3-text-input` 環境で解析・再生できます（使い方は下記）。
 
 ## ビルドと実機での確認
 
@@ -14,10 +14,11 @@ M5Stack CoreS3でsanoTTS-jpの推論コアをArduino環境から動かす検証�
 | `cores3-pie` | [02_pie_inference](examples/02_pie_inference/main.cpp) | W8A8＋PIEの推論のみ。音声は出ない |
 | `cores3-buffered` | [03_buffered_playback](examples/03_buffered_playback/main.cpp) | W8A8＋PIEで全PCMを蓄積後に再生 |
 | `cores3-streaming`（既定） | [04_streaming_playback](examples/04_streaming_playback/main.cpp) | W8A8＋PIEで先読み後、計算と並行して再生 |
+| `cores3-text-input` | [05_text_input](examples/05_text_input/main.cpp) | 2M辞書で日本語文章を解析し、W8A8＋PIEでストリーミング再生 |
 | `m5stack-cores3`（互換用） | 03_buffered_playback | 従来どおりW8A32で蓄積再生 |
 | `m5stack-cores3-pie`（互換用） | 03_buffered_playback | 従来どおりW8A8＋PIEで蓄積再生 |
 
-Hello Worldはexamplesに含めません。01〜03は動作確認時のコードを保持し、04にストリーミング再生を実装しています。
+Hello Worldはexamplesに含めません。01〜04は動作確認時のコードを保持し、05に日本語入力を追加しています。
 
 W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小数点です。W8A8は活性化も8bit整数へ量子化して計算します。PIEはESP32-S3で複数の整数の積和をまとめて実行する命令です。演算方式が変わるため、両構成の波形やチェックサムが同一になるとは限りません。
 
@@ -50,13 +51,13 @@ pio device monitor -b 115200
 | [scripts/blob_to_header.py](scripts/blob_to_header.py) | バイナリモデルをCの配列へ変換 |
 | [doc/codex/steering](doc/codex/steering) | 各段階の作業方針と検証結果 |
 
-`src`には移植元のESP-IDFサンプルも残っていますが、現在のアプリ側のビルド対象は選択した `examples/.../main.cpp` と共通の `src/saan_model.c` だけです。`src_dir = .` と各環境の `build_src_filter` で明示的に選択し、元の `src/main.cpp` や他のexampleはコンパイルしません。`main.c`、辞書、コンソール、顔表示、元サンプルのスピーカー処理はビルド対象外です。Arduino構成ではコピー済みの `CMakeLists.txt` をそのまま使わず、PlatformIOのソース選択と [library.json](lib/saanotts_core/library.json) で構成します。
+`src`には移植元のESP-IDFサンプルも残っていますが、01〜04のアプリ側のビルド対象は選択した `examples/.../main.cpp` と共通の `src/saan_model.c` だけです。`src_dir = .` と各環境の `build_src_filter` で明示的に選択し、元の `src/main.cpp` や他のexampleはコンパイルしません。`main.c`、辞書、コンソール、顔表示、元サンプルのスピーカー処理はビルド対象外です。Arduino構成ではコピー済みの `CMakeLists.txt` をそのまま使わず、PlatformIOのソース選択と [library.json](lib/saanotts_core/library.json) で構成します。
 
 ## 各exampleの確認方法
 
 1. PlatformIOで対象の環境を選び、BuildとUploadを行います。同じCoreS3上のファームウェアは選択したexampleに置き換わります。
 2. 115200bpsのモニターを開いてリセットし、起動からのログを確認します。
-3. `r` を送信して再実行します。推論のみのexampleも入力待ちでは同じ操作です。
+3. 01〜04は `r` を送信して再実行します。05は `Ready` 表示後に文章または `/r` を送り、Enterで確定します。
 
 | example | 起動ログと実機での確認ポイント | 同一構成での参考チェックサム |
 | --- | --- | --- |
@@ -300,3 +301,92 @@ I2S port 1 has not installed
 配列は `const` と16バイト整列を指定し、`saan_model.c`だけから取り込みます。モデル全体を内部RAMへ移さず、PIE等が必要とする整列も維持するためです。
 
 移植元は [SanoTTS-jp-M5StackCoreS3](https://github.com/nnn112358/SanoTTS-jp-M5StackCoreS3)、モデルと推論コアの出所は [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp) です。モデルの情報は [model/README.md](model/README.md)、Open JTalk関連の出所と条件は [PROVENANCE.md](lib/saanotts_core/openjtalk/PROVENANCE.md) と [COPYING](lib/saanotts_core/openjtalk/COPYING) を参照してください。コードとモデル重みのライセンスは別です。配布時には移植元のライセンス・NOTICEも確認してください。
+
+
+## 日本語文章入力（05_text_input）
+
+`cores3-text-input` は、UTF-8の漢字かな交じり文を2M辞書で解析し、既存と同じ先読み付きストリーミング再生へ渡します。既定環境は `cores3-streaming` のままです。
+
+### 辞書とビルド
+
+元リポジトリの `scripts/get_dict.sh 44000` で取得した `k1-dict-44000-2mb.bin` を、このプロジェクトの `model/` に置いてください。取得元は [sanoTTS-jpの小容量flash向けRelease](https://github.com/ayutaz/sanoTTS-jp/releases/tag/v0.3.1-rc1-smallflash) です。辞書はGit管理外で、自動ダウンロードしません。
+
+- ファイルサイズ: 977,456 B（「2M」は想定flash容量に由来する呼称）。
+- SHA-256: `cd1ed65241600b29ced9fde627b1543d93f5f5c0cd5297a4dba42d3f01d8806a`。
+- 44,000エントリ、28,128見出し語、接続行列1377×1377。
+
+```sh
+pio run -e cores3-text-input
+pio run -e cores3-text-input -t upload
+pio device monitor -e cores3-text-input -b 115200
+```
+
+モデルと辞書はファームウェアに含まれます。辞書専用の書き込み操作は不要です。[dictionary_to_header.py](scripts/dictionary_to_header.py) が形式・区画境界・SHA-256を検査し、`.pio/build/cores3-text-input/generated/` にヘッダを生成します。辞書や生成スクリプトの内容が変わると再生成し、辞書の欠落・破損・別版はビルドエラーになります。パーティションの変更はありません。
+
+### 入力と確認
+
+起動時に「今日は良い天気ですね。」を文章から解析して再生します。その後、`Ready` が表示されたらUTF-8で次のような文章を送信し、Enterで確定してください。端末は改行付きの送信に設定します（CR、LF、CRLF対応）。
+
+```text
+今日は良い天気ですね。
+東京都に行きます。
+123個あります。
+スーパーでパンを買います。
+OpenAIで開発します。
+/r
+```
+
+`/r` は直前に受け付けた文章を再解析・再生します。解析に失敗した文章も直前の文章として保持します。合成中の入力は次の発話として予約せず破棄するため、毎回 `Ready` を待ってください。空行・空白だけの行・不正UTF-8・制御文字・1,023バイトを超える行は拒否します。
+
+モデル入力は最大350 idsです。これとは別に、辞書の鍵長・作業領域・形態素数96・ラベル数512の上限もあります。長文は短く区切って入力してください。上限を超えた解析は再生せず、次の入力を待ちます。予測音声は30秒までに制限しています。推論・スピーカー処理が失敗した場合は停止してリセットを求めます。
+
+実機では以下を確認してください。
+
+- 起動時に `dictionary: entries=44000 surfaces=28128 matrix=1377x1377 clusters=256x256 char_runs=106` が出る。
+- 起動文の `Parse` が `OK`、`tokens=7 ids=53` になる。
+- 音声の読み、数字の読み方、ノイズ、音切れ、末尾の欠落。
+- `/r` を繰り返した際のヒープ、スタック残量、`queue_empty_events` の推移。
+- 長い入力を拒否した後も短い文章を処理できる。
+
+小さい辞書のため固有名詞や未知語の読みには限界があります。解析成功は、意図した読み・アクセントで発声できることを保証しません。
+
+### 処理の流れとファイルの役割
+
+1. [main.cpp](examples/05_text_input/main.cpp) がモデル・スピーカー・176 KiBのarenaを初期化し、[dictionary.c](examples/05_text_input/dictionary.c) で埋め込み辞書を開きます。
+2. [text_input.h](examples/05_text_input/text_input.h) が改行までの入力を保持し、長さとUTF-8を検査します。
+3. [japanese_parser.c](examples/05_text_input/japanese_parser.c) がOpen JTalkの `text2mecab()` で半角英数字などを正規化してから辞書検索用の鍵へ変換し、Viterbiで単語列を選びます。単語間の接続コストと文字種に基づく未知語候補も使います。
+4. 単語の読みをOpen JTalkのNJD処理へ渡し、数字・アクセント・無声化などを処理します。JPCommonで音素ラベルを作り、`label_ids_convert()` でモデル用idsへ変換します。
+5. idsをarena外の配列に保持し、arenaを推論用に初期化し直します。解析と推論は同じタスクで順番に実行するため、作業領域を共有できます。
+6. 04と同じ4チャンク先読み・3つの循環バッファで再生します。`Parse time` は解析時間、従来の `compute` と `Streaming timing` は解析後の推論・再生時間です。
+
+辞書は16バイト整列した `.flash.rodata` に置き、全体をRAMへコピーしません。`matrixc` はクラスタに対応する接続コストを必要時に整数で復号し、`charr` は文字種の範囲表を二分探索します。対応済みローダーの出所は [JDICT_UPSTREAM.md](lib/saanotts_core/JDICT_UPSTREAM.md) に記録しています。
+
+Open JTalkの一時確保だけに `oj_heap_psram.h` を適用し、PSRAMを優先します。解析ソースの選択とこの設定は05環境だけに適用されます。`japanese_parser.c` は保存済みの `src/saan_kanji.c` を基に、NJDノード・ラベル上限で黙って切り詰めず拒否するようにしています。
+
+### 検証結果（2026-09-13）
+
+- `cores3-text-input` と `cores3-streaming` のビルド成功。
+- 05: flash 2,204,385 B / 6,553,600 B、静的RAM 39,552 B。動的arena、Open JTalk一時ヒープ、音声バッファは別途使用します。
+- 辞書・モデルのflash配置と16バイト整列、Open JTalkからPSRAM用関数への参照をELF/オブジェクトで確認。04に日本語解析のシンボルが混入しないことも確認。
+- ホストで7文×3回の文章→ids変換、長さ制限後の再試行、UTF-8・改行・入力上限を検証。AddressSanitizer/UndefinedBehaviorSanitizerで異常なし。
+- 起動文の53 idsは保存済みの固定入力と全要素一致。辞書生成配列のバイト一致と欠落・破損辞書の拒否も確認。
+- 実機での発声とメモリ測定は未実施。
+
+ホスト検証は、gcc/g++のあるLinuxまたはWSLで以下を実行できます。辞書を事前に配置してください。
+
+```sh
+python3 tests/host/run_tests.py
+```
+
+
+### 半角英数字の読み落ち修正
+
+辞書検索前に `text2mecab()` を通すようにしました。半角の `123` と `OpenAI` が読みのない未知語になり、休止音へ変わっていた問題への修正です。
+
+- `123` は「ヒャクニジュウサン」の音素列と一致します。
+- `OpenAI` は「オーピーイーエヌエーアイ」の音素列と一致します。英単語として「オープンエーアイ」と読む機能ではありません。
+- 半角・全角の入力はそれぞれ同じidsになります。ホストで `123個あります。` は57 ids、`OpenAIで開発します。` は67 idsを確認しました。
+- 正規化後も1,023バイトが上限です。英数字の全角化で長さが増えるため、送信時に上限内でも拒否されることがあります。切り詰めず `内部バッファを超えた` と表示し、次の文章を待ちます。
+- 正規化用にタスクスタックへ1,024バイトのバッファを2つ追加しています。実機のスタック残量も確認してください。
+
+修正後は `cores3-text-input` を再度書き込み、半角の上記2文を再確認してください。ビルド2環境とホストのASan/UBSan検証は成功していますが、修正後の実機音声は未確認です。起動文の固定53 idsとの一致も維持しています。

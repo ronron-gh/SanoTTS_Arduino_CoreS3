@@ -3,3 +3,6 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+
+# 辞書 blob（0.98〜13.7 MB）。scripts/get_dict.sh で Release から取る
+model/k1-dict-*.bin
