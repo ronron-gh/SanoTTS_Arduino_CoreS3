@@ -2,7 +2,7 @@
 
 M5Stack CoreS3で日本語TTS [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp)の推論コアをPlatformIO/Arduino環境から動かす検証用プロジェクトです。sanoTTS-jpをESP-IDF環境でM5Stack各種で動かすプロジェクト[SanoTTS-jp-M5StackCoreS3](https://github.com/nnn112358/SanoTTS-jp-M5StackCoreS3)をベースとし、モデルの読み込み、推論速度、メモリ使用量、内蔵スピーカーでの再生を確認します。
 
-現在は「今日は良い天気ですね。」に対応する固定の53トークンを入力します。既定のストリーミング版は先読み後に再生を開始し、残りを計算しながら順次再生します。全音声を貯めてから再生する蓄積版も環境名で選択できます。起動時に一度実行し、シリアルから半角 `r` を送ると再度合成・再生します。任意の日本語文章は、追加の `cores3-text-input` 環境で解析・再生できます（使い方は下記）。
+既定の `cores3-text-input` は、2M辞書を使って日本語文章を解析し、先読み付きストリーミング再生を行います。起動時に「今日は良い天気ですね。」を解析・再生し、シリアルに `Ready` が表示されたら日本語文章または `/r` をEnter付きで送信できます。固定の53トークンを使う推論・蓄積再生・ストリーミング再生の各段階も、環境名で選択できます。
 
 ## ビルドと実機での確認
 
@@ -13,10 +13,8 @@ M5Stack CoreS3で日本語TTS [sanoTTS-jp](https://github.com/ayutaz/sanoTTS-jp)
 | `cores3-inference` | [01_inference](examples/01_inference/main.cpp) | W8A32の推論のみ。音声は出ない |
 | `cores3-pie` | [02_pie_inference](examples/02_pie_inference/main.cpp) | W8A8＋PIEの推論のみ。音声は出ない |
 | `cores3-buffered` | [03_buffered_playback](examples/03_buffered_playback/main.cpp) | W8A8＋PIEで全PCMを蓄積後に再生 |
-| `cores3-streaming`（既定） | [04_streaming_playback](examples/04_streaming_playback/main.cpp) | W8A8＋PIEで先読み後、計算と並行して再生 |
-| `cores3-text-input` | [05_text_input](examples/05_text_input/main.cpp) | 2M辞書で日本語文章を解析し、W8A8＋PIEでストリーミング再生 |
-| `m5stack-cores3`（互換用） | 03_buffered_playback | 従来どおりW8A32で蓄積再生 |
-| `m5stack-cores3-pie`（互換用） | 03_buffered_playback | 従来どおりW8A8＋PIEで蓄積再生 |
+| `cores3-streaming` | [04_streaming_playback](examples/04_streaming_playback/main.cpp) | W8A8＋PIEで先読み後、計算と並行して再生 |
+| `cores3-text-input`（既定） | [05_text_input](examples/05_text_input/main.cpp) | 2M辞書で日本語文章を解析し、W8A8＋PIEでストリーミング再生 |
 
 Hello Worldはexamplesに含めません。01〜04は動作確認時のコードを保持し、05に日本語入力を追加しています。
 
@@ -24,18 +22,20 @@ W8A32は重みが8bit整数、活性化（計算途中の値）が32bit浮動小
 
 現在の設定はEspressif 32 6.3.2、Arduino、M5Unified 0.2.15です。ビルドで使用されたArduino Coreは2.0.9です。`board = esp32s3box` を基に、CoreS3用の定義・PSRAM・16MBフラッシュ用パーティションを指定しています。
 
+既定環境のビルド前に、`model/k1-dict-44000-2mb.bin` を配置してください。辞書はGitに含まれていません。[辞書の取得手順](model/README.md)に従って入手できます。
+
 ```sh
-# ビルド
-pio run -e cores3-streaming
+# ビルド（既定: cores3-text-input）
+pio run
 
 # 接続したCoreS3へ書き込み（起動後に音が出ます）
-pio run -e cores3-streaming -t upload
+pio run -t upload
 
 # シリアルモニター
 pio device monitor -b 115200
 ```
 
-モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。蓄積再生との比較は `cores3-buffered` を指定します。推論のみなら環境名を `cores3-inference` または `cores3-pie` に変更します。W8A32の蓄積再生は互換環境 `m5stack-cores3` で確認できます。
+モニターを開いたままリセットすると起動ログを確認できます。初回は依存の取得が必要になる場合があります。蓄積再生との比較は `cores3-buffered` を指定します。推論のみなら環境名を `cores3-inference` または `cores3-pie` に変更します。固定入力のストリーミング再生は `pio run -e cores3-streaming` で選択できます。01〜04は辞書不要で、再実行コマンドは半角 `r` です。
 
 ## ファイルの役割
 
@@ -305,7 +305,7 @@ I2S port 1 has not installed
 
 ## 日本語文章入力（05_text_input）
 
-`cores3-text-input` は、UTF-8の漢字かな交じり文を2M辞書で解析し、既存と同じ先読み付きストリーミング再生へ渡します。既定環境は `cores3-streaming` のままです。
+`cores3-text-input` は、UTF-8の漢字かな交じり文を2M辞書で解析し、既存と同じ先読み付きストリーミング再生へ渡します。既定環境なので、環境名を省略した `pio run` でもこのexampleをビルドします。
 
 ### 辞書とビルド
 
