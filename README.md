@@ -107,6 +107,7 @@ pio device monitor -e cores3-streaming -b 115200
 
 | 資料 | 内容 |
 |---|---|
+| [他プロジェクトへの移植](doc/porting.md) | 必要ファイル、設定、呼び出し順、メモリと排他 |
 | [実装の仕組み](doc/architecture.md) | ファイル構成、03のmain.cpp解説、04のバッファ設計、05の解析処理 |
 | [Exampleの比較と確認方法](doc/examples.md) | 各段階の違い、チェックサム、実行時の確認ポイント |
 | [ログと検証結果](doc/validation.md) | 時間・メモリの指標、実機測定例、ホストテストの実行方法 |

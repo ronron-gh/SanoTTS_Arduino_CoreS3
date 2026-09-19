@@ -14,6 +14,10 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "jdict.h"
 #include "accent.h"     /* accent_node_t（作業領域の大きさを静的に出すため） */
 #include "label_ids.h" /* LABEL_IDS_SCRATCH_BYTES（T10(a) で arena へ移した分） */
@@ -37,7 +41,7 @@
 #define SAAN_KANJI_A16(x) ((((size_t)(x)) + 15u) & ~(size_t)15u)
 
 /* K-7 のトークン表を arena から渡す構成（K-A / T10(a)）では、その分もここに入る。
- * ⚠️ **component の CMakeLists が LABEL_IDS_EXTERNAL_SCRATCH=1 を PUBLIC で定義する。**
+ * ⚠️ **PlatformIO では共通 build_flags に LABEL_IDS_EXTERNAL_SCRATCH=1 を指定する。**
  *    定義されていないビルドでは label_ids.c が自分の .bss を使うので 0。 */
 #if defined(LABEL_IDS_EXTERNAL_SCRATCH) && LABEL_IDS_EXTERNAL_SCRATCH
 #define SAAN_KANJI_K7_SCRATCH LABEL_IDS_SCRATCH_BYTES
@@ -63,8 +67,8 @@ typedef enum {
     SAAN_KANJI_ERR_TOO_LONG = -5   /* 内部バッファを超えた */
 } saan_kanji_status;
 
-/* 起動時に 1 回。作業領域を確保する（PSRAM 優先）。0 なら失敗。
- * ⚠️ **.bss には置けない**（DRAM が 419 KB 足りない。G19 で実測）。 */
+/* 初期化確認用。現在は確保せず成功を返す。作業領域は呼び出し側が渡す。
+ * 内部に static の作業ポインタを持つため、解析の並行呼び出しは禁止。 */
 int saan_kanji_init(void);
 
 /* 確保する作業領域のバイト数（**最低限これだけ要る**）。SAAN_KANJI_WORKBYTES と同じ値を返す
@@ -96,5 +100,9 @@ saan_kanji_status saan_kanji_to_ids_arena(const jdict_t *d,
                                           int32_t *n_ids, int *n_tokens);
 
 const char *saan_kanji_strerror(saan_kanji_status s);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* SAAN_KANJI_H */

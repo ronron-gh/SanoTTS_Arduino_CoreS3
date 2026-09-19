@@ -14,7 +14,7 @@ SanoTTS Arduino CoreS3は、以下の成果物を基にしたArduino / PlatformI
 
 推論コア全体を最新上流へ同期したものではありません。`jdict.c/h`のみ、2M辞書のmatrixc/charr対応のため上流コミット `0a92f3b6a98f845017505956625315c338322f71` から取り込みました（[出所記録](lib/saanotts_core/JDICT_UPSTREAM.md)）。その他の初期コピー元について、単一の取得コミットはこのプロジェクトでは記録されていません。
 
-`examples/05_text_input/japanese_parser.c`は保存済みの`src/saan_kanji.c`を基に、上限超過の拒否とOpen JTalk text2mecabによる正規化を追加したものです。
+`lib/saanotts_core/saan_kanji.c`は上流ESP-IDF版（SanoTTS-jp-M5StackCoreS3）の`main/saan_kanji.c`を基に、上限超過の拒否とOpen JTalk text2mecabによる正規化を追加したものです。
 
 ## モデル重みと生成音声
 

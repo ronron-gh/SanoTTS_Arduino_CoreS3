@@ -1,4 +1,4 @@
-"""Only cores3-text-input embeds a dictionary and redirects Open JTalk allocations."""
+"""Only cores3-text-input embeds a dictionary."""
 Import("env")
 import hashlib
 from pathlib import Path
@@ -16,15 +16,4 @@ if not header.exists() or not stamp.exists() or stamp.read_text() != fingerprint
     subprocess.run([env.subst("$PYTHONEXE"), "-X", "utf8", str(generator),
                     "--blob", str(blob), "--out", str(header)], check=True)
     stamp.write_text(fingerprint)
-env.Append(CPPPATH=[str(out), str(root / "lib/saanotts_core")])
-
-
-def openjtalk_psram(build_env, node):
-    if "/openjtalk/" not in node.get_abspath().replace("\\", "/"):
-        return node
-    custom = build_env.Clone()
-    custom.Append(CCFLAGS=["-include", str(root / "lib/saanotts_core/oj_heap_psram.h")])
-    return custom.Object(node)
-
-
-env.AddBuildMiddleware(openjtalk_psram, "*.c")
+env.Append(CPPPATH=[str(out)])

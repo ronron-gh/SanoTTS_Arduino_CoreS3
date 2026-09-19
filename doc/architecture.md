@@ -9,16 +9,15 @@
 | ファイル・フォルダ | 役割 |
 | --- | --- |
 | [examples](../examples) | 各段階のmain.cpp。環境名で1つを選択してビルド |
-| [src/main.cpp](../src/main.cpp) | 構成整理前の蓄積再生コードをそのまま保持。現在はビルド対象外 |
 | [src/demo_ids.h](../src/demo_ids.h) | 固定入力 `kSaanDemoIds` と元の文章の情報 |
 | [src/saan_model.c](../src/saan_model.c) | 埋め込まれたモデルを開き、整列とモデル形式を確認 |
-| [lib/saanotts_core](../lib/saanotts_core) | C言語の推論コア。ニューラルネットワークの計算本体 |
+| [lib/saanotts_core](../lib/saanotts_core) | C言語の推論コアと日本語解析 |
 | [model/student_i8.bin](../model/student_i8.bin) | 形式v2のint8モデル（654,032バイト） |
 | [scripts/platformio_model.py](../scripts/platformio_model.py) | PlatformIOのビルド前にモデルヘッダ生成を実行 |
 | [scripts/blob_to_header.py](../scripts/blob_to_header.py) | バイナリモデルをCの配列へ変換 |
 | [doc/codex/steering](../doc/codex/steering) | 各段階の作業方針と検証結果 |
 
-`src`には移植元のESP-IDFサンプルも残っていますが、01〜04のアプリ側のビルド対象は選択した `examples/.../main.cpp` と共通の `src/saan_model.c` だけです。`src_dir = .` と各環境の `build_src_filter` で明示的に選択し、元の `src/main.cpp` や他のexampleはコンパイルしません。`main.c`、辞書、コンソール、顔表示、元サンプルのスピーカー処理はビルド対象外です。Arduino構成ではコピー済みの `CMakeLists.txt` をそのまま使わず、PlatformIOのソース選択と [library.json](../lib/saanotts_core/library.json) で構成します。
+`src`には共通のモデル接続コードと固定入力のヘッダを置き、各段階のアプリは `examples/` に保存しています。`src_dir = .` と各環境の `build_src_filter` で対象のExampleと `src/saan_model.c` を選択します。05はExample内の辞書接続コードもコンパイルします。推論・解析ライブラリは [library.json](../lib/saanotts_core/library.json) とライブラリ内のビルドスクリプトで構成します。
 
 ## 03：蓄積再生のmain.cpp
 
@@ -192,14 +191,14 @@ flowchart TD
 
 1. [main.cpp](../examples/05_text_input/main.cpp) がモデル・スピーカー・176 KiBのarenaを初期化し、[dictionary.c](../examples/05_text_input/dictionary.c) で埋め込み辞書を開きます。
 2. [text_input.h](../examples/05_text_input/text_input.h) が改行までの入力を保持し、長さとUTF-8を検査します。
-3. [japanese_parser.c](../examples/05_text_input/japanese_parser.c) がOpen JTalkの `text2mecab()` で半角英数字などを正規化してから辞書検索用の鍵へ変換し、Viterbiで単語列を選びます。単語間の接続コストと文字種に基づく未知語候補も使います。
+3. [saan_kanji.c](../lib/saanotts_core/saan_kanji.c) がOpen JTalkの `text2mecab()` で半角英数字などを正規化してから辞書検索用の鍵へ変換し、Viterbiで単語列を選びます。単語間の接続コストと文字種に基づく未知語候補も使います。
 4. 単語の読みをOpen JTalkのNJD処理へ渡し、数字・アクセント・無声化などを処理します。JPCommonで音素ラベルを作り、`label_ids_convert()` でモデル用idsへ変換します。
 5. idsをarena外の配列に保持し、arenaを推論用に初期化し直します。解析と推論は同じタスクで順番に実行するため、作業領域を共有できます。
 6. 04と同じ4チャンク先読み・3つの循環バッファで再生します。`Parse time` は解析時間、従来の `compute` と `Streaming timing` は解析後の推論・再生時間です。
 
 辞書は16バイト整列した `.flash.rodata` に置き、全体をRAMへコピーしません。`matrixc` はクラスタに対応する接続コストを必要時に整数で復号し、`charr` は文字種の範囲表を二分探索します。対応済みローダーの出所は [JDICT_UPSTREAM.md](../lib/saanotts_core/JDICT_UPSTREAM.md) に記録しています。
 
-Open JTalkの一時確保だけに `oj_heap_psram.h` を適用し、PSRAMを優先します。解析ソースの選択とこの設定は05環境だけに適用されます。`japanese_parser.c` は保存済みの `src/saan_kanji.c` を基に、NJDノード・ラベル上限で黙って切り詰めず拒否するようにしています。
+Open JTalkの一時確保だけに `oj_heap_psram.h` を適用し、PSRAMを優先します。解析ソースの選択とこの設定はライブラリ内の platformio_build.py が SAAN_KANJI=1 の場合だけ適用します。`saan_kanji.c` は上流ESP-IDF版の `main/saan_kanji.c` を基に、NJDノード・ラベル上限で黙って切り詰めず拒否するようにしています。
 
 ## モデルの埋め込みと出所
 

@@ -17,7 +17,7 @@ with tempfile.TemporaryDirectory(prefix="saan-text-test-") as temp:
     cmd = ["gcc", "-g", "-O1", "-fsanitize=address,undefined", "-fno-omit-frame-pointer",
            "-ffunction-sections", "-fdata-sections", "-Wl,--gc-sections", "-DCHARSET_UTF_8",
            "-DLABEL_IDS_EXTERNAL_SCRATCH=1", "-I" + str(core), "-I" + str(root / "src"),
-           str(source / "text_e2e.c"), str(example / "japanese_parser.c")]
+           str(source / "text_e2e.c"), str(core / "saan_kanji.c")]
     cmd += [str(core / n) for n in ["jdict.c", "accent.c", "njd_rules.c", "label_ids.c"]]
     cmd += [str(p) for p in sorted((core / "openjtalk").glob("*.c"))]
     cmd += ["-lm", "-o", str(build / "text_e2e")]

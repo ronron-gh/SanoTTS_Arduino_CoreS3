@@ -14,9 +14,9 @@
 | 04_streaming_playback | 先読み後の発声、推論PASS、Playback complete、発話開始要求時間とキュー枯渇回数 | `7f28bdb2c151b52c`（同じモデル・入力・PIE構成） |
 | 05_text_input | 辞書の初期化、起動文のParse OK・7形態素・53 ids、発声とReady、文章入力と/r | 任意入力では値が変わる。起動文のidsは固定入力と一致 |
 
-01〜03の各main.cppは当時のコードを変更せずコピーしています。01は `doc/codex/backups/20260912-w8a8-pie/src/main.cpp`、02は `doc/codex/backups/20260912-buffered-playback/src/main.cpp`、03は構成整理前の `src/main.cpp` が保存元です。蓄積再生版の既知のI2S終了ログも、参考コードをそのまま残すため変更していません。
+01〜03の各main.cppは当時のコードを変更せずコピーしています。01は `doc/codex/backups/20260912-w8a8-pie/src/main.cpp`、02は `doc/codex/backups/20260912-buffered-playback/src/main.cpp`、03は構成整理前の `src/main.cpp` が保存元です。重複していた元ファイルは削除し、03に統一しています。蓄積再生版の既知のI2S終了ログも、参考コードをそのまま残すため変更していません。
 
-[実装の仕組み](../doc/architecture.md)の蓄積再生の詳しい処理解説は [03_buffered_playback/main.cpp](../examples/03_buffered_playback/main.cpp) を対象とします。保持しているsrc/main.cppと内容は同一です。01・02には全音声用バッファと再生処理がなく、01にはPIEセルフテストもありません。
+[実装の仕組み](../doc/architecture.md)の蓄積再生の詳しい処理解説は [03_buffered_playback/main.cpp](../examples/03_buffered_playback/main.cpp) を対象とします。01・02には全音声用バッファと再生処理がなく、01にはPIEセルフテストもありません。
 
 ## 演算方式
 
